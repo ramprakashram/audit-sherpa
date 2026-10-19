@@ -19,7 +19,7 @@ describe('normalizeReport', () => {
 
   it('maps a transitive fix to a parent bump when npm reports one', async () => {
     const minimist = (await normalizedExpressApp()).find((v) => v.name === 'minimist')!;
-    expect(minimist.fix).toEqual({ kind: 'install', target: 'mkdirp', version: '0.5.6', isSemVerMajor: false });
+    expect(minimist.fix).toEqual({ kind: 'install', target: 'mkdirp', version: '0.5.6', isSemVerMajor: false, targetCurrentVersion: '0.5.1' });
   });
 
   it('resolves a concrete safe version for fixAvailable: true (override for transitive deps)', async () => {

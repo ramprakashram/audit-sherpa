@@ -66,6 +66,8 @@ export interface FixInfo {
   target?: string;
   /** Version to move `target` to. */
   version?: string;
+  /** Installed version of `target` when it is a parent package (not the vulnerable package itself). */
+  targetCurrentVersion?: string;
   isSemVerMajor: boolean;
   /** For kind `via`: the vulnerable dependencies that need fixing. */
   via?: string[];
@@ -137,6 +139,8 @@ export interface FixAction {
   /** Package that will be installed/overridden. */
   name: string;
   version: string;
+  /** Currently installed version(s) of `name`. */
+  currentVersions?: string[];
   isSemVerMajor: boolean;
   /** For installs: package.json section to save into. */
   saveType?: DependencyType;

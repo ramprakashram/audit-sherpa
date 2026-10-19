@@ -1,4 +1,4 @@
-import type { Vulnerability } from '../types.js';
+import type { FixAction, Vulnerability } from '../types.js';
 
 /** Fix version only (no parent/via info). */
 export function fixVersionText(v: Vulnerability): string {
@@ -46,4 +46,9 @@ export function fitWidths(natural: number[], max: number, shrinkable: number[], 
     excess--;
   }
   return widths;
+}
+
+/** Installed version(s) a fix action upgrades from, e.g. `1.2.3, 2.0.1` (or `?` when unknown). */
+export function currentVersionsText(a: FixAction): string {
+  return a.currentVersions?.length ? a.currentVersions.join(', ') : '?';
 }

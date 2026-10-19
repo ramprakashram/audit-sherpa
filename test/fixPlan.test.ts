@@ -9,6 +9,13 @@ describe('buildFixPlan', () => {
     const plan = buildFixPlan(vulns, pkg);
     expect(plan.actions).toHaveLength(1);
     expect(plan.actions[0]).toMatchObject({ kind: 'install', name: 'mkdirp', version: '0.5.6', fixes: ['mkdirp', 'minimist'] });
+    expect(plan.actions[0]!.currentVersions).toEqual(['0.5.1']);
+  });
+
+  it('records the installed version of the parent for a parent bump', async () => {
+    const { pkg } = loadExpressApp();
+    const minimist = (await normalizedExpressApp()).filter((v) => v.name === 'minimist');
+    expect(buildFixPlan(minimist, pkg).actions[0]).toMatchObject({ name: 'mkdirp', currentVersions: ['0.5.1'], version: '0.5.6' });
   });
 
   it('keeps the dependency section and exact pinning of direct dependencies', async () => {

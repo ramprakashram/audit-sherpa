@@ -125,6 +125,7 @@ async function resolveFix(
       version: fa.version,
       isSemVerMajor: fa.isSemVerMajor,
     };
+    if (fa.name !== raw.name) fix.targetCurrentVersion = opts.lock?.packages?.[`node_modules/${fa.name}`]?.version;
     // npm only checks advisories affecting the *installed* version, so its suggestion can still be vulnerable.
     if (fa.name === raw.name && semver.valid(fa.version)) {
       const safe = await findSafeVersion(raw.name, vulnerableRange, currentVersions.at(-1), opts);

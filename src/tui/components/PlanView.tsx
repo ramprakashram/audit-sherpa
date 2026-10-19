@@ -1,4 +1,5 @@
 import { Box, Text } from 'ink';
+import { currentVersionsText } from '../../report/columns.js';
 import type { FixAction, FixPlan } from '../../types.js';
 
 function actionLabel(a: FixAction): string {
@@ -9,7 +10,8 @@ export function PlanView({ plan, allowMajor, targets }: { plan: FixPlan; allowMa
   const heldBack = plan.skipped.filter((s) => s.requiresMajor);
   const other = plan.skipped.filter((s) => !s.requiresMajor);
   const nameW = Math.max(7, ...plan.actions.map((a) => (a.overrideKey ?? a.name).length)) + 2;
-  const verW = Math.max(7, ...plan.actions.map((a) => a.version.length)) + 2;
+  const verW = Math.max(12, ...plan.actions.map((a) => a.version.length)) + 2;
+  const curW = Math.max(9, ...plan.actions.map((a) => currentVersionsText(a).length)) + 2;
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1}>
       <Text bold>
@@ -20,7 +22,8 @@ export function PlanView({ plan, allowMajor, targets }: { plan: FixPlan; allowMa
           {'#  '}
           {'Action'.padEnd(18)}
           {'Package'.padEnd(nameW)}
-          {'Version'.padEnd(verW)}
+          {'Current'.padEnd(curW)}
+          {'Upgrade To'.padEnd(verW)}
           {'Major'.padEnd(7)}
           Fixes
         </Text>
@@ -31,7 +34,8 @@ export function PlanView({ plan, allowMajor, targets }: { plan: FixPlan; allowMa
             {String(i + 1).padEnd(3)}
             {actionLabel(a).padEnd(18)}
             <Text bold>{(a.overrideKey ?? a.name).padEnd(nameW)}</Text>
-            {a.version.padEnd(verW)}
+            <Text dimColor>{currentVersionsText(a).padEnd(curW)}</Text>
+            <Text color="green">{a.version.padEnd(verW)}</Text>
             <Text color="yellow">{(a.isSemVerMajor ? '⚠ yes' : '').padEnd(7)}</Text>
             <Text dimColor>{a.fixes.join(', ')}</Text>
           </Text>

@@ -43,6 +43,10 @@ export function buildFixPlan(selected: Vulnerability[], pkg: PackageJson, opts: 
     const { fix } = v;
     const fixes = [v.name, ...origins];
     if (fix.kind === 'via') continue;
+    const currentVersions =
+      fix.target === v.name
+        ? v.currentVersions
+        : byName.get(fix.target ?? '')?.currentVersions ?? (fix.targetCurrentVersion ? [fix.targetCurrentVersion] : []);
     if (fix.kind === 'none' || !fix.target) {
       skipped.push({ name: v.name, reason: 'No fix available' });
       continue;
@@ -64,7 +68,7 @@ export function buildFixPlan(selected: Vulnerability[], pkg: PackageJson, opts: 
       const key = `install:${fix.target}`;
       const existing = actions.get(key);
       if (existing) {
-        mergeInto(existing, fixes, fix.version, fix.isSemVerMajor);
+        mergeInto(existing, fixes, fix.version, fix.isSemVerMajor, currentVersions);
         continue;
       }
       const spec = getDeclaredSpec(pkg, fix.target);
@@ -72,6 +76,7 @@ export function buildFixPlan(selected: Vulnerability[], pkg: PackageJson, opts: 
         kind: 'install',
         name: fix.target,
         version: fix.version,
+        currentVersions: [...currentVersions],
         isSemVerMajor: fix.isSemVerMajor,
         saveType: getDependencyType(pkg, fix.target) ?? 'prod',
         saveExact: !!spec && semver.valid(spec) !== null,
@@ -98,7 +103,7 @@ export function buildFixPlan(selected: Vulnerability[], pkg: PackageJson, opts: 
     const key = `override:${name}`;
     const existing = actions.get(key);
     if (existing) {
-      mergeInto(existing, fixes, fix.version, fix.isSemVerMajor);
+      mergeInto(existing, fixes, fix.version, fix.isSemVerMajor, currentVersions);
       existing.vulnerableRange = [existing.vulnerableRange, v.vulnerableRange].filter(Boolean).join(' || ');
       continue;
     }
@@ -107,6 +112,7 @@ export function buildFixPlan(selected: Vulnerability[], pkg: PackageJson, opts: 
       name,
       // a caret range keeps other (compatible) copies of the package from being downgraded
       version: name === v.name && v.otherVersions.length ? `^${fix.version}` : fix.version,
+      currentVersions: [...currentVersions],
       isSemVerMajor: fix.isSemVerMajor,
       overrideKey: name,
       vulnerableRange: name === v.name ? v.vulnerableRange : undefined,
@@ -130,8 +136,10 @@ export function buildFixPlan(selected: Vulnerability[], pkg: PackageJson, opts: 
   return { actions: list, skipped };
 }
 
-function mergeInto(action: FixAction, fixes: string[], version: string, isMajor: boolean): void {
+function mergeInto(action: FixAction, fixes: string[], version: string, isMajor: boolean, currentVersions: string[]): void {
   for (const f of fixes) if (!action.fixes.includes(f)) action.fixes.push(f);
+  action.currentVersions ??= [];
+  for (const c of currentVersions) if (!action.currentVersions.includes(c)) action.currentVersions.push(c);
   const current = semver.coerce(action.version)?.version;
   if (semver.valid(version) && current && semver.gt(version, current)) {
     action.version = action.version.startsWith('^') ? `^${version}` : version;

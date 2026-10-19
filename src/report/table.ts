@@ -1,7 +1,7 @@
 import Table from 'cli-table3';
 import pc from 'picocolors';
 import type { AuditSummary, FixPlan, Severity, Vulnerability } from '../types.js';
-import { fitWidths, fixVersionText, fixViaText, isMajorFix, truncate } from './columns.js';
+import { currentVersionsText, fitWidths, fixVersionText, fixViaText, isMajorFix, truncate } from './columns.js';
 
 const SEVERITY_COLOR: Record<Severity, (s: string) => string> = {
   critical: (s) => pc.bold(pc.magenta(s)),
@@ -117,7 +117,7 @@ export function renderPlan(plan: FixPlan): string {
   const lines: string[] = [];
   if (plan.actions.length) {
     const table = new Table({
-      head: ['#', 'Action', 'Package', 'Version', 'Fixes', 'Major'].map((h) => pc.bold(h)),
+      head: ['#', 'Action', 'Package', 'Current', 'Upgrade To', 'Fixes', 'Major'].map((h) => pc.bold(h)),
       style: { head: [], border: [] },
     });
     plan.actions.forEach((a, i) =>
@@ -125,7 +125,8 @@ export function renderPlan(plan: FixPlan): string {
         String(i + 1),
         a.kind === 'install' ? `install${a.saveType && a.saveType !== 'prod' ? ` (${a.saveType})` : ''}` : 'override',
         a.kind === 'override' ? a.overrideKey ?? a.name : a.name,
-        a.version,
+        currentVersionsText(a),
+        pc.green(a.version),
         a.fixes.join(', '),
         a.isSemVerMajor ? pc.yellow('⚠ yes') : '',
       ]),

@@ -27,6 +27,7 @@ const action: FixAction = {
   kind: 'install',
   name: 'lodash',
   version: '4.17.21',
+  currentVersions: ['4.17.15'],
   isSemVerMajor: false,
   saveType: 'prod',
   fixes: ['lodash'],
@@ -97,6 +98,8 @@ describe('interactive TUI', () => {
     await press(stdin, '\r');
     let f = await waitFor(lastFrame, 'Fix plan');
     expect(f).toContain('npm install lodash@4.17.21');
+    expect(f).toMatch(/Current\s+Upgrade To/);
+    expect(f).toMatch(/lodash\s+4\.17\.15\s+4\.17\.21/);
 
     await press(stdin, 'y');
     f = await waitFor(lastFrame, '1 succeeded');

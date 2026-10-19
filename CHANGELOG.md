@@ -5,6 +5,7 @@
 - **`--registry <url>`** option, like `npm audit --registry=…`. It applies to npm audit, fixes, rollback installs and fix-version lookups, and is also available for `mcp`.
 - **Readable npm errors:** failures now show npm's real error message, status code and relevant stderr lines, the npm debug-log path, and a hint. Hints cover registries without audit support, authentication, DNS, connection, timeout and TLS errors. Previously you only saw "npm audit failed".
 - **Colour-coded filter legend** in the interactive header. Each filter type has its own colour, and active filters show as filled badges.
+- **Fix plan shows the current version:** the plan (CLI and interactive) now has `Current` and `Upgrade To` columns instead of a single `Version` column. Fix actions also expose `currentVersions` in the API and MCP output.
 
 ## 0.2.0
 
