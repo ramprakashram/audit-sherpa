@@ -2,9 +2,7 @@
 
 > Your guide through `npm audit`. Run one command and get an **interactive terminal session**: browse vulnerabilities in a clean, filterable table, pick exactly what to fix (production only, direct only, or hand-picked packages), watch the fixes run live, and roll back if needed. Includes an MCP server, so AI agents can debug and fix vulnerabilities for you.
 
-<!-- SCREENSHOT [hero]: the main interactive table with a few rows selected and filters active (best overall shot).
-     Save as docs/screenshots/hero.png, then uncomment the image line below. -->
-<!-- ![audit-sherpa interactive session](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/hero.png) -->
+![audit-sherpa interactive session](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/hero.png)
 
 ## Quick start
 
@@ -56,47 +54,27 @@ audit-sherpa ui                       # same as running with no subcommand (alia
 
 **1. Boot.** audit-sherpa runs `npm audit` and resolves safe fix versions, showing each step and how long it took.
 
-<!-- SCREENSHOT [boot]: the "Booting up Audit Sherpa…" screen while npm audit is running.
-     Save as docs/screenshots/boot.png, then uncomment the image line below. -->
-<!-- ![Booting up Audit Sherpa](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/boot.png) -->
-
 **2. Browse and filter.** Every vulnerability is listed with its severity, whether it is direct and/or a production dependency, the current version, the fix version, and whether the fix is a semver-major update. Toggle filters with single keys (`p` production, `d` direct, `x` fix available, `s` severity, `/` search, `c` clear). The header legend gives each filter its own colour, and active filters show as filled badges with ✓. Press `enter` on a row to see all of its advisories.
 
-<!-- SCREENSHOT [filters]: the table with a couple of filters active (e.g. prod ✓ and fix available ✓) so the coloured legend is visible.
-     Save as docs/screenshots/filters.png, then uncomment the image line below. -->
-<!-- ![Filters and colour-coded legend](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/filters.png) -->
-
-<!-- SCREENSHOT [details]: a row expanded with enter, showing its advisories and links.
-     Save as docs/screenshots/details.png, then uncomment the image line below. -->
-<!-- ![Advisory details](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/details.png) -->
+![Filters and colour-coded legend](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/filters.png)
 
 **3. Select and fix.** Select packages with `space` (`a` selects everything in view), then press `f` and choose what to fix: the selected packages, everything in view, production only, or direct only.
 
-<!-- SCREENSHOT [fix-menu]: the fix menu opened with f.
-     Save as docs/screenshots/fix-menu.png, then uncomment the image line below. -->
-<!-- ![Fix menu](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/fix-menu.png) -->
+![Fix menu](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/fix-menu.png)
 
 **4. Review the plan.** Nothing changes until you confirm. The plan shows the action (`install` or `override`), the package, its **current** version, the version it will be **upgraded to**, which vulnerabilities it fixes, and whether it is a semver-major update. Majors are held back unless you press `m`. Press `y`/`enter` to apply or `esc` to go back.
 
-<!-- SCREENSHOT [plan]: the fix plan screen with the Current / Upgrade To columns (ideally with a held-back major warning).
-     Save as docs/screenshots/plan.png, then uncomment the image line below. -->
-<!-- ![Fix plan preview](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/plan.png) -->
+![Fix plan preview](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/plan.png)
 
 **5. Watch it run.** Each fix runs on its own with a spinner and live npm output. A failed fix is reverted without stopping the others.
 
-<!-- SCREENSHOT [progress]: the progress screen while fixes are running.
-     Save as docs/screenshots/progress.png, then uncomment the image line below. -->
-<!-- ![Live fix progress](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/progress.png) -->
+![Live fix progress](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/progress.png)
 
 **6. Result.** You get the before → after vulnerability count, then the table re-scans automatically. Press `b` at any time to roll back to an earlier backup.
 
-<!-- SCREENSHOT [result]: the result screen with before/after counts.
-     Save as docs/screenshots/result.png, then uncomment the image line below. -->
-<!-- ![Fix result](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/result.png) -->
+![Fix result](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/result.png)
 
-<!-- SCREENSHOT [backups]: the backups screen opened with b.
-     Save as docs/screenshots/backups.png, then uncomment the image line below. -->
-<!-- ![Backups and rollback](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/backups.png) -->
+![Backups and rollback](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/backups.png)
 
 ### Keys
 
@@ -119,10 +97,6 @@ audit-sherpa ui                       # same as running with no subcommand (alia
 | `?` | Help |
 | `q` | Quit (asks first while a fix is running) |
 
-<!-- SCREENSHOT [help]: the help overlay opened with ?.
-     Save as docs/screenshots/help.png, then uncomment the image line below. -->
-<!-- ![Help screen](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/help.png) -->
-
 The session needs an interactive terminal. When output is piped or running in CI, or with `--json`, `--md`, `--fail-on` or `--no-tui`, audit-sherpa prints the one-shot table instead.
 
 ## One-shot commands
@@ -144,10 +118,6 @@ audit-sherpa --json report.json --md report.md
 audit-sherpa --prod --fail-on high    # exit code 1 for CI if a high/critical prod vuln exists
 ```
 
-<!-- SCREENSHOT [list]: the output of `audit-sherpa list` (static table).
-     Save as docs/screenshots/list.png, then uncomment the image line below. -->
-<!-- ![One-shot list output](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/list.png) -->
-
 ### Fix vulnerabilities
 
 ```bash
@@ -159,10 +129,6 @@ audit-sherpa fix --severity critical --dry-run
 audit-sherpa fix --allow-major -y     # include semver-major (potentially breaking) updates
 audit-sherpa fix --prod -y --ignore-scripts   # don't run install scripts of updated packages
 ```
-
-<!-- SCREENSHOT [fix-dry-run]: the output of `audit-sherpa fix --dry-run` showing the plan table.
-     Save as docs/screenshots/fix-dry-run.png, then uncomment the image line below. -->
-<!-- ![Fix plan dry run](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/fix-dry-run.png) -->
 
 | Option | Description |
 | --- | --- |
@@ -223,10 +189,6 @@ When `npm audit` fails, audit-sherpa shows npm's own error together with a hint 
 
 There are also hints for authentication (401/403), DNS, connection, timeout and TLS certificate errors.
 
-<!-- SCREENSHOT [error]: a failed scan (e.g. --registry pointing at a registry without audit support) showing the error, hint and npm log path.
-     Save as docs/screenshots/error.png, then uncomment the image line below. -->
-<!-- ![npm audit error with hint](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/error.png) -->
-
 ## How fixes work
 
 | Situation | Action |
@@ -285,7 +247,7 @@ Every tool accepts a `cwd` (absolute project path). It defaults to the server's 
 
 Example prompt: *"Use audit-sherpa to list the high and critical production vulnerabilities in this repo, then fix the direct ones without breaking changes."*
 
-<!-- SCREENSHOT [mcp]: an AI agent (Copilot / Claude / Cursor) calling the audit-sherpa MCP tools.
+<!-- SCREENSHOT [mcp]: an AI agent (Copilot / Claude / Cursor) calling the audit-sherpa MCP tools. Use the demo project, not a work repo.
      Save as docs/screenshots/mcp.png, then uncomment the image line below. -->
 <!-- ![audit-sherpa used by an AI agent](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/mcp.png) -->
 
