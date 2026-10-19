@@ -26,7 +26,7 @@ import {
   type MenuOption,
   type ProgressItem,
   type ScanStep,
-} from './components.js';
+} from './components/index.js';
 import { fixTargets, initialTableState, tableReducer, visibleVulns, type Filters, type FixScope } from './state.js';
 
 export interface Services {
