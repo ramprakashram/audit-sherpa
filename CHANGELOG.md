@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+
+- **`--registry <url>`** option, like `npm audit --registry=…`. It applies to npm audit, fixes, rollback installs and fix-version lookups, and is also available for `mcp`.
+- **Readable npm errors:** failures now show npm's real error message, status code and relevant stderr lines, the npm debug-log path, and a hint. Hints cover registries without audit support, authentication, DNS, connection, timeout and TLS errors. Previously you only saw "npm audit failed".
+- **Colour-coded filter legend** in the interactive header. Each filter type has its own colour, and active filters show as filled badges.
+
 ## 0.2.0
 
 - **Interactive session is now the default.** Running `audit-sherpa` opens a full-screen terminal UI that stays open. You can browse, filter (single-key toggles, search), multi-select, preview and apply fixes with live progress, roll back to any backup, export and re-scan, all without leaving it. The one-shot table moved to `audit-sherpa list` and is still used automatically for pipes/CI, `--json`, `--md`, `--fail-on` and `--no-tui`.

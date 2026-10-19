@@ -52,7 +52,10 @@ Requires Node.js >= 22.12, npm >= 7, and a `package-lock.json` in the project.
 audit-sherpa                          # start the interactive session in the current project
 audit-sherpa -C ../other-project      # in another project
 audit-sherpa --prod --severity high   # start with filters already applied
+audit-sherpa --registry https://registry.npmjs.org   # use a specific registry
 ```
+
+The header has a colour-coded legend. Each filter type has its own colour (production green, direct blue, fix available magenta, severity yellow, search cyan), and active filters show as a filled badge with ✓.
 
 | Key | Action |
 | --- | --- |
@@ -114,6 +117,7 @@ audit-sherpa fix --allow-major -y     # include semver-major (potentially breaki
 | `--dry-run` | Show the fix plan and commands without changing anything |
 | `-y, --yes` | No prompts. Semver-major fixes are still skipped unless `--allow-major` is set |
 | `--no-backup` | Do not back up `package.json` / lockfile |
+| `--registry <url>` | npm registry for audit, fixes and version lookups, like `npm --registry`. Scoped registries in `.npmrc` still apply. `NPM_CONFIG_REGISTRY` also works |
 | `--no-registry` | Do not query the registry to resolve or verify fix versions |
 | `--input <file>` | Use an existing `npm audit --json` output instead of running npm audit |
 | `-C, --cwd <dir>` | Project directory |
@@ -127,6 +131,23 @@ audit-sherpa rollback --no-install
 ```
 
 Backups are stored in `.audit-sherpa/backups/` inside your project. The last 10 are kept, and the folder ignores itself in git.
+
+### Custom registries and errors
+
+```bash
+audit-sherpa --registry https://registry.npmjs.org/
+audit-sherpa fix --prod --registry=https://npm.example.com/
+```
+
+When `npm audit` fails, audit-sherpa shows npm's own error together with a hint and the path to npm's debug log. For example:
+
+```text
+✗ npm audit failed (E405): 405 Method Not Allowed - POST https://npm.example.com/-/npm/v1/security/audits/quick
+  Hint: This registry does not support npm audit (common with private registries and mirrors such as Artifactory, Nexus or Verdaccio). Point the audit at a registry that does, for example: --registry https://registry.npmjs.org/
+  npm log: C:\Users\you\AppData\Local\npm-cache\_logs\…-debug-0.log
+```
+
+There are also hints for authentication (401/403), DNS, connection, timeout and TLS certificate errors.
 
 ## How fixes work
 
@@ -152,7 +173,7 @@ Each fix runs on its own. If one fails, only that change is reverted and the res
 | `audit_fix` | Apply fixes (supports `dryRun`, `allowMajor`). Reports MCP progress notifications |
 | `audit_rollback` | Restore the last backup |
 
-Every tool accepts a `cwd` (absolute project path). It defaults to the server's working directory.
+Every tool accepts a `cwd` (absolute project path). It defaults to the server's working directory. To use a custom registry, add `"--registry", "https://…"` after `"mcp"` in `args`.
 
 **VS Code** (`.vscode/mcp.json`)
 

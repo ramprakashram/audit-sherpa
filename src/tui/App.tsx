@@ -55,7 +55,10 @@ export interface AppProps {
   cwd: string;
   version: string;
   inputFile?: string;
-  registry?: boolean;
+  /** Query the registry to resolve fix versions (default true). */
+  resolveVersions?: boolean;
+  /** Custom registry (already applied via setNpmRegistry); shown in the header. */
+  registryUrl?: string;
   backup?: boolean;
   initialFilters?: Partial<Filters>;
   allowMajor?: boolean;
@@ -127,7 +130,7 @@ export function App(props: AppProps) {
         const result = await services.scan({
           cwd: props.cwd,
           inputFile: props.inputFile,
-          resolveVersions: props.registry !== false,
+          resolveVersions: props.resolveVersions !== false,
           onProgress: (e: ScanProgress) => {
             if (e.phase === 'audit') push(props.inputFile ? `Reading ${props.inputFile}` : 'Running npm audit');
             else if (e.phase === 'resolve') {
@@ -150,7 +153,7 @@ export function App(props: AppProps) {
         update({ error: (err as Error).message });
       }
     },
-    [props.cwd, props.inputFile, props.registry, services],
+    [props.cwd, props.inputFile, props.resolveVersions, services],
   );
 
   useEffect(() => {
@@ -430,6 +433,7 @@ export function App(props: AppProps) {
       shown={vulns.length}
       selected={table.selected.size}
       searching={searching}
+      registryUrl={props.registryUrl}
     />
   );
 

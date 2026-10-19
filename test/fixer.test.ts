@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FixAction, FixEvent, FixPlan } from '../src/types.js';
 
 const runNpm = vi.fn();
-vi.mock('../src/core/npm.js', () => ({ runNpm: (...args: unknown[]) => runNpm(...args) }));
+vi.mock('../src/core/npm.js', () => ({ runNpm: (...args: unknown[]) => runNpm(...args), getNpmRegistryOverride: () => undefined }));
 
 const { applyFixPlan } = await import('../src/core/fixer.js');
 const { listBackups, restoreBackup } = await import('../src/core/backup.js');

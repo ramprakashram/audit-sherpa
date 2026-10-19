@@ -1,5 +1,6 @@
 export * from './types.js';
-export { runAudit, parseAuditJson, AuditError } from './core/audit.js';
+export { runAudit, parseAuditJson, auditErrorHint, AuditError } from './core/audit.js';
+export { setNpmRegistry } from './core/npm.js';
 export { normalizeReport, severityRank } from './core/parse.js';
 export { scan, type ScanOptions } from './core/scan.js';
 export { filterVulnerabilities, isSeverityFilter, SEVERITY_FILTERS } from './core/filter.js';

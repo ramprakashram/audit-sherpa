@@ -25,6 +25,35 @@ export class NpmError extends Error {
   }
 }
 
+let registryOverride: string | undefined;
+
+/**
+ * Uses `url` as the npm registry for every npm command and registry request made by audit-sherpa,
+ * like passing `--registry <url>` to npm. Scoped registries from .npmrc still apply. Pass undefined to reset.
+ */
+export function setNpmRegistry(url?: string): void {
+  registryOverride = url ? normalizeRegistryUrl(url) : undefined;
+}
+
+export function getNpmRegistryOverride(): string | undefined {
+  return registryOverride;
+}
+
+/** Validates a registry URL and adds the trailing slash npm expects. Throws on invalid input. */
+export function normalizeRegistryUrl(url: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(url.trim());
+  } catch {
+    throw new Error(`Invalid registry URL: "${url}"`);
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`Invalid registry URL: "${url}" (must start with http:// or https://)`);
+  }
+  const s = parsed.toString();
+  return s.endsWith('/') ? s : `${s}/`;
+}
+
 /** Runs `npm <args>` and never throws on a non-zero exit code. */
 export async function runNpm(args: string[], opts: NpmRunOptions): Promise<NpmRunResult> {
   const subprocess = execa('npm', args, {
@@ -37,6 +66,7 @@ export async function runNpm(args: string[], opts: NpmRunOptions): Promise<NpmRu
       npm_config_progress: 'false',
       npm_config_update_notifier: 'false',
       npm_config_fund: 'false',
+      ...(registryOverride ? { npm_config_registry: registryOverride } : {}),
     },
   });
 

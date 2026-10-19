@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { Command, Option } from 'commander';
+import { Command, InvalidArgumentError, Option } from 'commander';
 import ora from 'ora';
 import pc from 'picocolors';
 import { readFileSync } from 'node:fs';
@@ -9,7 +9,7 @@ import { listBackups, restoreBackup } from './core/backup.js';
 import { filterVulnerabilities, SEVERITY_FILTERS } from './core/filter.js';
 import { applyFixPlan } from './core/fixer.js';
 import { buildFixPlan } from './core/fixPlan.js';
-import { runNpm } from './core/npm.js';
+import { normalizeRegistryUrl, runNpm, setNpmRegistry } from './core/npm.js';
 import { severityRank } from './core/parse.js';
 import { readPackageJson } from './core/project.js';
 import { scan } from './core/scan.js';
@@ -33,7 +33,8 @@ interface CommonOpts {
   severity: SeverityFilter;
   severityExact?: boolean;
   input?: string;
-  registry: boolean;
+  /** URL from --registry, false from --no-registry (skip fix-version lookups), undefined otherwise. */
+  registry?: string | false;
 }
 
 interface ListOpts extends CommonOpts {
@@ -54,8 +55,24 @@ interface FixOpts extends CommonOpts {
 
 const isTTY = () => Boolean(process.stdin.isTTY && process.stdout.isTTY);
 
+function parseRegistry(value: string): string {
+  try {
+    return normalizeRegistryUrl(value);
+  } catch (err) {
+    throw new InvalidArgumentError((err as Error).message);
+  }
+}
+
+function addRegistryOption(cmd: Command): Command {
+  return cmd.option(
+    '--registry <url>',
+    'npm registry for audit, fixes and version lookups (like `npm --registry`)',
+    parseRegistry,
+  );
+}
+
 function addCommonOptions(cmd: Command): Command {
-  return cmd
+  return addRegistryOption(cmd)
     .option('-C, --cwd <dir>', 'project directory', process.cwd())
     .option('-p, --prod', 'only production dependencies')
     .option('-d, --direct', 'only direct dependencies')
@@ -88,7 +105,7 @@ async function runScan(o: CommonOpts, quiet = false): Promise<AuditResult> {
     const result = await scan({
       cwd: resolve(o.cwd),
       inputFile: o.input,
-      resolveVersions: o.registry,
+      resolveVersions: o.registry !== false,
       onProgress: (e) => {
         if (!spinner) return;
         if (e.phase === 'audit') spinner.text = `${title} running npm audit ${secs()}`;
@@ -98,19 +115,36 @@ async function runScan(o: CommonOpts, quiet = false): Promise<AuditResult> {
     spinner?.stop();
     return result;
   } catch (err) {
-    spinner?.fail('npm audit failed');
+    // the error itself is printed by the top-level handler
+    spinner?.fail(pc.red('Scan failed'));
     throw err;
   }
 }
 
+/** Matches the colours of the interactive filter legend. */
+const FILTER_PC = {
+  prod: pc.green,
+  direct: pc.blueBright,
+  fixable: pc.magentaBright,
+  severity: pc.yellow,
+  packages: pc.cyanBright,
+};
+
 function describeFilters(o: CommonOpts & { packages?: string[] }): string {
   const parts: string[] = [];
-  if (o.prod) parts.push('production only');
-  if (o.direct) parts.push('direct only');
-  if (o.fixable) parts.push('fix available');
-  if (o.severity && o.severity !== 'all') parts.push(`severity ${o.severityExact ? '=' : '>='} ${o.severity}`);
-  if (o.packages?.length) parts.push(`packages: ${o.packages.join(', ')}`);
-  return parts.length ? pc.dim(`Filters: ${parts.join(', ')}`) : '';
+  if (o.prod) parts.push(FILTER_PC.prod('production only'));
+  if (o.direct) parts.push(FILTER_PC.direct('direct only'));
+  if (o.fixable) parts.push(FILTER_PC.fixable('fix available'));
+  if (o.severity && o.severity !== 'all') parts.push(FILTER_PC.severity(`severity ${o.severityExact ? '=' : '>='} ${o.severity}`));
+  if (o.packages?.length) parts.push(FILTER_PC.packages(`packages: ${o.packages.join(', ')}`));
+  if (typeof o.registry === 'string') parts.push(pc.dim(`registry: ${o.registry}`));
+  return parts.length ? `${pc.dim('Filters:')} ${parts.join(pc.dim(', '))}` : '';
+}
+
+/** First line in red, hints in yellow, the rest dimmed. */
+function formatError(message: string): string {
+  const [first = '', ...rest] = message.split(/\r?\n/);
+  return [pc.red(`✗ ${first}`), ...rest.map((l) => (l.startsWith('Hint:') ? pc.yellow(`  ${l}`) : pc.dim(`  ${l}`)))].join('\n');
 }
 
 /* ------------------------------ list ------------------------------ */
@@ -332,7 +366,8 @@ async function uiCommand(o: UiOpts): Promise<void> {
     cwd: resolve(o.cwd),
     version,
     inputFile: o.input,
-    registry: o.registry,
+    resolveVersions: o.registry !== false,
+    registryUrl: typeof o.registry === 'string' ? o.registry : undefined,
     backup: o.backup,
     allowMajor: o.allowMajor,
     initialFilters: {
@@ -397,19 +432,27 @@ addCommonOptions(program.command('fix').description('fix vulnerabilities (intera
   .option('--no-backup', 'do not back up package.json / package-lock.json')
   .action(fixCommand);
 
-program
-  .command('rollback')
-  .description('restore package.json and package-lock.json from the latest backup')
-  .option('-C, --cwd <dir>', 'project directory', process.cwd())
-  .option('--no-install', 'do not run npm install after restoring')
-  .option('--list', 'list available backups')
-  .action(rollbackCommand);
+addRegistryOption(
+  program
+    .command('rollback')
+    .description('restore package.json and package-lock.json from the latest backup')
+    .option('-C, --cwd <dir>', 'project directory', process.cwd())
+    .option('--no-install', 'do not run npm install after restoring')
+    .option('--list', 'list available backups'),
+).action(rollbackCommand);
 
-program
-  .command('mcp')
-  .description('start the Model Context Protocol server over stdio (for LLM agents)')
-  .option('-C, --cwd <dir>', 'default project directory', process.cwd())
-  .action(async (o: { cwd: string }) => (await import('./mcp/server.js')).startMcpServer(resolve(o.cwd)));
+addRegistryOption(
+  program
+    .command('mcp')
+    .description('start the Model Context Protocol server over stdio (for LLM agents)')
+    .option('-C, --cwd <dir>', 'default project directory', process.cwd()),
+).action(async (o: { cwd: string }) => (await import('./mcp/server.js')).startMcpServer(resolve(o.cwd)));
+
+// apply --registry to every npm command and registry request made by the selected command
+program.hook('preAction', (_program, command) => {
+  const { registry } = command.opts<{ registry?: string | false }>();
+  setNpmRegistry(typeof registry === 'string' ? registry : undefined);
+});
 
 function collectPackages(value: string, previous: string[] = []): string[] {
   return previous.concat(value.split(',').map((s) => s.trim()).filter(Boolean));
@@ -421,6 +464,6 @@ program.parseAsync(process.argv).catch((err: unknown) => {
     process.exitCode = 130;
     return;
   }
-  console.error(pc.red(`✗ ${e?.message ?? String(err)}`));
+  console.error(formatError(e?.message ?? String(err)));
   process.exitCode = process.exitCode || 2;
 });

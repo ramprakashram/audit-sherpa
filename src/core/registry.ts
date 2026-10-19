@@ -1,5 +1,5 @@
 import semver from 'semver';
-import { runNpm } from './npm.js';
+import { getNpmRegistryOverride, runNpm } from './npm.js';
 
 export type VersionFetcher = (name: string) => Promise<string[]>;
 /** Returns the vulnerable ranges of all known advisories affecting any of the given versions. */
@@ -10,6 +10,8 @@ const registryCache = new Map<string, Promise<string>>();
 
 /** Resolves the configured registry URL (cached; call early to overlap with other work). */
 export function getRegistry(cwd: string): Promise<string> {
+  const override = getNpmRegistryOverride();
+  if (override) return Promise.resolve(override);
   let p = registryCache.get(cwd);
   if (!p) {
     p = runNpm(['config', 'get', 'registry'], { cwd, timeoutMs: 30_000 }).then(({ stdout }) => {

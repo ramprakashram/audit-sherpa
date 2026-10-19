@@ -1,13 +1,31 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const runNpm = vi.fn();
-vi.mock('../src/core/npm.js', () => ({ runNpm }));
+let override: string | undefined;
+vi.mock('../src/core/npm.js', () => ({ runNpm, getNpmRegistryOverride: () => override }));
 
-const { createNpmVersionFetcher } = await import('../src/core/registry.js');
+const { createNpmVersionFetcher, getRegistry } = await import('../src/core/registry.js');
+const { normalizeRegistryUrl } = await vi.importActual<typeof import('../src/core/npm.js')>('../src/core/npm.js');
 
 afterEach(() => {
   vi.unstubAllGlobals();
   runNpm.mockReset();
+  override = undefined;
+});
+
+describe('registry override', () => {
+  it('normalizes and validates --registry urls', () => {
+    expect(normalizeRegistryUrl('https://reg.example/npm')).toBe('https://reg.example/npm/');
+    expect(normalizeRegistryUrl(' http://localhost:4873/ ')).toBe('http://localhost:4873/');
+    expect(() => normalizeRegistryUrl('notaurl')).toThrow();
+    expect(() => normalizeRegistryUrl('ftp://reg.example')).toThrow();
+  });
+
+  it('getRegistry returns the override without spawning npm', async () => {
+    override = 'https://custom.example/';
+    expect(await getRegistry('/override')).toBe('https://custom.example/');
+    expect(runNpm).not.toHaveBeenCalled();
+  });
 });
 
 describe('createNpmVersionFetcher', () => {

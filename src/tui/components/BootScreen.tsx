@@ -24,8 +24,14 @@ export function BootScreen({ title, steps, error }: { title: string; steps: Scan
       </Box>
       {error && (
         <Box flexDirection="column" marginTop={1}>
-          <Text color="red">{error}</Text>
-          <Text dimColor>r retry · q quit</Text>
+          {error.split(/\r?\n/).map((line, i) => (
+            <Text key={i} color={i === 0 ? 'red' : line.startsWith('Hint:') ? 'yellow' : undefined} bold={i === 0} dimColor={i > 0 && !line.startsWith('Hint:')}>
+              {i === 0 ? `✗ ${line}` : `  ${line}`}
+            </Text>
+          ))}
+          <Box marginTop={1}>
+            <Text dimColor>r retry · q quit</Text>
+          </Box>
         </Box>
       )}
     </Box>
