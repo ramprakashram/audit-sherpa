@@ -6,6 +6,7 @@
 - **Readable npm errors:** failures now show npm's real error message, status code and relevant stderr lines, the npm debug-log path, and a hint. Hints cover registries without audit support, authentication, DNS, connection, timeout and TLS errors. Previously you only saw "npm audit failed".
 - **Colour-coded filter legend** in the interactive header. Each filter type has its own colour, and active filters show as filled badges.
 - **Fix plan shows the current version:** the plan (CLI and interactive) now has `Current` and `Upgrade To` columns instead of a single `Version` column. Fix actions also expose `currentVersions` in the API and MCP output.
+- **`--ignore-scripts`** (opt-in) for `fix`, the interactive session and `rollback`, and `ignoreScripts` for the MCP `audit_fix` / `audit_rollback` tools. It skips npm install scripts during fixes and rollbacks, and reminds you to run `npm rebuild` if a package needs them.
 
 ## 0.2.0
 

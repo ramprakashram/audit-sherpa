@@ -133,6 +133,10 @@ export function createMcpServer(defaultCwd = process.cwd()): McpServer {
         ...filterShape,
         allowMajor: z.boolean().optional().describe('Include semver-major (potentially breaking) updates.'),
         dryRun: z.boolean().optional().describe('Only return what would be done.'),
+        ignoreScripts: z
+          .boolean()
+          .optional()
+          .describe('Run npm install with --ignore-scripts (safer against malicious install scripts; packages that need them may require `npm rebuild`).'),
       },
       annotations: { destructiveHint: true, openWorldHint: true },
     },
@@ -150,6 +154,7 @@ export function createMcpServer(defaultCwd = process.cwd()): McpServer {
           cwd,
           dryRun: args.dryRun,
           before: result.summary,
+          ignoreScripts: args.ignoreScripts,
           onEvent: (e) => {
             if (progressToken === undefined) return;
             // progress must strictly increase: start = 2i-1, finish = 2i, re-audit = 2n+1
@@ -165,7 +170,13 @@ export function createMcpServer(defaultCwd = process.cwd()): McpServer {
               .catch(() => undefined);
           },
         });
-        return json({ ...fixResult, skipped: plan.skipped });
+        return json({
+          ...fixResult,
+          skipped: plan.skipped,
+          ...(args.ignoreScripts && !args.dryRun
+            ? { note: 'Install scripts were skipped. If a package needs them (native addons, binary downloads, git hooks), run `npm rebuild`.' }
+            : {}),
+        });
       } catch (err) {
         return fail(err);
       }
@@ -180,6 +191,7 @@ export function createMcpServer(defaultCwd = process.cwd()): McpServer {
       inputSchema: {
         cwd: filterShape.cwd,
         install: z.boolean().optional().describe('Run `npm install` after restoring (default true).'),
+        ignoreScripts: z.boolean().optional().describe('Run npm install with --ignore-scripts.'),
       },
       annotations: { destructiveHint: true },
     },
@@ -188,7 +200,7 @@ export function createMcpServer(defaultCwd = process.cwd()): McpServer {
         const cwd = cwdOf(args);
         const dir = await restoreBackup(cwd);
         let installExitCode: number | undefined;
-        if (args.install !== false) installExitCode = (await runNpm(['install'], { cwd })).exitCode;
+        if (args.install !== false) installExitCode = (await runNpm(['install'], { cwd, ignoreScripts: args.ignoreScripts })).exitCode;
         return json({ restoredFrom: dir, installExitCode });
       } catch (err) {
         return fail(err);

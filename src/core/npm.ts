@@ -12,6 +12,8 @@ export interface NpmRunOptions {
   /** Called for every line printed by npm (stdout + stderr interleaved). */
   onLine?: (line: string) => void;
   timeoutMs?: number;
+  /** Skip package lifecycle scripts (preinstall/install/postinstall/prepare), like `npm --ignore-scripts`. */
+  ignoreScripts?: boolean;
 }
 
 export class NpmError extends Error {
@@ -67,6 +69,8 @@ export async function runNpm(args: string[], opts: NpmRunOptions): Promise<NpmRu
       npm_config_update_notifier: 'false',
       npm_config_fund: 'false',
       ...(registryOverride ? { npm_config_registry: registryOverride } : {}),
+      // only ever turn scripts off; an `ignore-scripts=true` in the user's .npmrc stays in effect otherwise
+      ...(opts.ignoreScripts ? { npm_config_ignore_scripts: 'true' } : {}),
     },
   });
 

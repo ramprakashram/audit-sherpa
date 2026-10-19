@@ -2,7 +2,7 @@ import { Box, Text } from 'ink';
 import type { FixResult } from '../../types.js';
 import { SummaryText } from './SummaryText.js';
 
-export function ResultView({ result, error }: { result?: FixResult; error?: string }) {
+export function ResultView({ result, error, ignoreScripts }: { result?: FixResult; error?: string; ignoreScripts?: boolean }) {
   if (error) {
     return (
       <Box flexDirection="column" borderStyle="round" borderColor="red" paddingX={1}>
@@ -44,6 +44,11 @@ export function ResultView({ result, error }: { result?: FixResult; error?: stri
           ))}
         </Box>
       ) : null}
+      {ignoreScripts && ok > 0 && (
+        <Text color="yellow">
+          Install scripts were skipped. If a package needs them (native addons, binary downloads, git hooks), run `npm rebuild`.
+        </Text>
+      )}
       {result.backupDir && <Text dimColor>Backup: {result.backupDir}</Text>}
       <Text dimColor>enter continue · b backups / rollback</Text>
     </Box>

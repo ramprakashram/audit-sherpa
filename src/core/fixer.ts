@@ -17,6 +17,8 @@ export interface ApplyOptions {
   reaudit?: boolean;
   /** Summary before fixing, echoed back in the result. */
   before?: AuditSummary;
+  /** Run `npm install` with lifecycle scripts disabled (`--ignore-scripts`). */
+  ignoreScripts?: boolean;
   onEvent?: (event: FixEvent) => void;
 }
 
@@ -48,7 +50,7 @@ export async function applyFixPlan(plan: FixPlan, opts: ApplyOptions = {}): Prom
 
     let outcome: ActionResult;
     try {
-      const note = await runAction(cwd, action, onLine);
+      const note = await runAction(cwd, action, onLine, !!opts.ignoreScripts);
       outcome = { action, ok: true, durationMs: Date.now() - started, note };
       emit({ type: 'action-success', index, total, action, durationMs: outcome.durationMs, note });
     } catch (err) {
@@ -61,7 +63,7 @@ export async function applyFixPlan(plan: FixPlan, opts: ApplyOptions = {}): Prom
   }
 
   // bring node_modules back in line with the restored manifest/lockfile
-  if (reverted) await runNpm(['install'], { cwd }).catch(() => undefined);
+  if (reverted) await runNpm(['install'], { cwd, ignoreScripts: opts.ignoreScripts }).catch(() => undefined);
 
   if (result.results.some((r) => r.ok && !r.note)) result.treeProblems = await checkTree(cwd);
 
@@ -89,16 +91,21 @@ export async function checkTree(cwd: string): Promise<string[]> {
   }
 }
 
-async function runAction(cwd: string, action: FixAction, onLine: (line: string) => void): Promise<string | undefined> {
+async function runAction(
+  cwd: string,
+  action: FixAction,
+  onLine: (line: string) => void,
+  ignoreScripts: boolean,
+): Promise<string | undefined> {
   if (action.kind === 'override') {
     if (!(await isStillVulnerable(cwd, action))) return 'already resolved by earlier updates';
     await updatePackageJson(cwd, (pkg) => {
       const overrides = (pkg.overrides ??= {});
       overrides[action.overrideKey ?? action.name] = action.version;
     });
-    await npmOrThrow(['install'], cwd, onLine);
+    await npmOrThrow(['install'], cwd, onLine, ignoreScripts);
   } else {
-    await npmOrThrow(installArgs(action), cwd, onLine);
+    await npmOrThrow(installArgs(action), cwd, onLine, ignoreScripts);
   }
   return undefined;
 }
@@ -123,10 +130,11 @@ function satisfiesSafe(version: string, range: string): boolean {
   }
 }
 
-async function npmOrThrow(args: string[], cwd: string, onLine: (line: string) => void): Promise<void> {
-  const res = await runNpm(args, { cwd, onLine });
+async function npmOrThrow(args: string[], cwd: string, onLine: (line: string) => void, ignoreScripts: boolean): Promise<void> {
+  const res = await runNpm(args, { cwd, onLine, ignoreScripts });
   if (res.exitCode !== 0) {
+    const shown = ignoreScripts ? [...args, '--ignore-scripts'] : args;
     const tail = (res.stderr || res.stdout).trim().split(/\r?\n/).slice(-8).join('\n');
-    throw new Error(`npm ${args.join(' ')} failed (exit ${res.exitCode})${tail ? `:\n${tail}` : ''}`);
+    throw new Error(`npm ${shown.join(' ')} failed (exit ${res.exitCode})${tail ? `:\n${tail}` : ''}`);
   }
 }

@@ -74,6 +74,17 @@ describe('applyFixPlan', () => {
     ]);
   });
 
+  it('passes ignoreScripts to every npm install, but not to ls/audit', async () => {
+    await applyFixPlan(plan(install, override), { cwd, ignoreScripts: true });
+    const calls = runNpm.mock.calls.map((c) => [(c[0] as string[])[0], (c[1] as { ignoreScripts?: boolean }).ignoreScripts]);
+    expect(calls).toEqual([
+      ['install', true],
+      ['install', true],
+      ['ls', undefined],
+      ['audit', undefined],
+    ]);
+  });
+
   it('reverts only the failing action and keeps going', async () => {
     runNpm.mockImplementation(async (args: string[]) => {
       if (args[0] === 'install' && args.length === 1 && !(globalThis as { reverted?: boolean }).reverted) {

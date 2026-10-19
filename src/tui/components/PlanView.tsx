@@ -6,7 +6,17 @@ function actionLabel(a: FixAction): string {
   return a.kind === 'install' ? `install${a.saveType && a.saveType !== 'prod' ? ` (${a.saveType})` : ''}` : 'override';
 }
 
-export function PlanView({ plan, allowMajor, targets }: { plan: FixPlan; allowMajor: boolean; targets: number }) {
+export function PlanView({
+  plan,
+  allowMajor,
+  targets,
+  ignoreScripts,
+}: {
+  plan: FixPlan;
+  allowMajor: boolean;
+  targets: number;
+  ignoreScripts?: boolean;
+}) {
   const heldBack = plan.skipped.filter((s) => s.requiresMajor);
   const other = plan.skipped.filter((s) => !s.requiresMajor);
   const nameW = Math.max(7, ...plan.actions.map((a) => (a.overrideKey ?? a.name).length)) + 2;
@@ -39,10 +49,13 @@ export function PlanView({ plan, allowMajor, targets }: { plan: FixPlan; allowMa
             <Text color="yellow">{(a.isSemVerMajor ? '⚠ yes' : '').padEnd(7)}</Text>
             <Text dimColor>{a.fixes.join(', ')}</Text>
           </Text>
-          <Text dimColor wrap="truncate-end">   $ {a.description}</Text>
+          <Text dimColor wrap="truncate-end">   $ {a.description}{ignoreScripts ? ' --ignore-scripts' : ''}</Text>
         </Box>
       ))}
       {plan.actions.length === 0 && <Text color="yellow">Nothing to fix with this selection.</Text>}
+      {ignoreScripts && plan.actions.length > 0 && (
+        <Text color="yellow">Install scripts will be skipped (--ignore-scripts).</Text>
+      )}
       {heldBack.length > 0 && (
         <Box flexDirection="column" marginTop={1}>
           <Text color="yellow" bold>

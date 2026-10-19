@@ -51,6 +51,15 @@ interface FixOpts extends CommonOpts {
   dryRun?: boolean;
   yes?: boolean;
   backup: boolean;
+  ignoreScripts?: boolean;
+}
+
+const IGNORE_SCRIPTS_HELP = 'run npm install with --ignore-scripts (safer; packages that need install scripts may not work until `npm rebuild`)';
+const IGNORE_SCRIPTS_NOTE = 'Install scripts were skipped (--ignore-scripts). If a package needs them (native addons, binary downloads, git hooks), run `npm rebuild`.';
+
+/** The command shown for a fix action, including `--ignore-scripts` when it is on. */
+function actionCommand(description: string, ignoreScripts?: boolean): string {
+  return ignoreScripts ? `${description} --ignore-scripts` : description;
 }
 
 const isTTY = () => Boolean(process.stdin.isTTY && process.stdout.isTTY);
@@ -254,9 +263,10 @@ async function fixCommand(o: FixOpts): Promise<void> {
 
   console.log(`\n${pc.bold('Fix plan')}${o.dryRun ? pc.dim(' (dry run)') : ''}`);
   console.log(renderPlan(plan));
+  if (o.ignoreScripts) console.log(pc.yellow('Install scripts will be skipped (--ignore-scripts).'));
   if (o.dryRun) {
     console.log(pc.dim('\nCommands:'));
-    for (const a of plan.actions) console.log(pc.dim(`  ${a.description}`));
+    for (const a of plan.actions) console.log(pc.dim(`  ${actionCommand(a.description, o.ignoreScripts)}`));
     return;
   }
 
@@ -270,10 +280,10 @@ async function fixCommand(o: FixOpts): Promise<void> {
         console.error(pc.dim(`Backup saved to ${e.dir}`));
         break;
       case 'action-start':
-        spinner.start(`${label(e)} ${e.action.description}`);
+        spinner.start(`${label(e)} ${actionCommand(e.action.description, o.ignoreScripts)}`);
         break;
       case 'action-output':
-        spinner.text = `${label(e)} ${e.action.description} ${pc.dim(`› ${truncate(e.line, 60)}`)}`;
+        spinner.text = `${label(e)} ${actionCommand(e.action.description, o.ignoreScripts)} ${pc.dim(`› ${truncate(e.line, 60)}`)}`;
         break;
       case 'action-success':
         spinner.succeed(
@@ -293,7 +303,13 @@ async function fixCommand(o: FixOpts): Promise<void> {
     }
   };
 
-  const fixResult = await applyFixPlan(plan, { cwd, backup: o.backup, before: result.summary, onEvent });
+  const fixResult = await applyFixPlan(plan, {
+    cwd,
+    backup: o.backup,
+    before: result.summary,
+    ignoreScripts: o.ignoreScripts,
+    onEvent,
+  });
   const ok = fixResult.results.filter((r) => r.ok).length;
   const failed = fixResult.results.length - ok;
 
@@ -307,12 +323,13 @@ async function fixCommand(o: FixOpts): Promise<void> {
     for (const p of fixResult.treeProblems.slice(0, 10)) console.log(pc.yellow(`   - ${p}`));
   }
   if (fixResult.backupDir) console.log(pc.dim('Undo with: audit-sherpa rollback'));
+  if (o.ignoreScripts && ok > 0) console.log(pc.yellow(IGNORE_SCRIPTS_NOTE));
   if (failed) process.exitCode = 1;
 }
 
 /* ------------------------------ rollback ------------------------------ */
 
-async function rollbackCommand(o: { cwd: string; install: boolean; list?: boolean }): Promise<void> {
+async function rollbackCommand(o: { cwd: string; install: boolean; list?: boolean; ignoreScripts?: boolean }): Promise<void> {
   const cwd = resolve(o.cwd);
   if (o.list) {
     const backups = await listBackups(cwd);
@@ -323,9 +340,15 @@ async function rollbackCommand(o: { cwd: string; install: boolean; list?: boolea
   console.log(pc.green(`Restored package.json and lockfile from ${dir}`));
   if (o.install) {
     const spinner = ora({ text: 'Running npm install…', stream: process.stderr }).start();
-    const res = await runNpm(['install'], { cwd, onLine: (l) => (spinner.text = `Running npm install… ${pc.dim(truncate(l, 60))}`) });
-    if (res.exitCode === 0) spinner.succeed('node_modules synced');
-    else {
+    const res = await runNpm(['install'], {
+      cwd,
+      ignoreScripts: o.ignoreScripts,
+      onLine: (l) => (spinner.text = `Running npm install… ${pc.dim(truncate(l, 60))}`),
+    });
+    if (res.exitCode === 0) {
+      spinner.succeed('node_modules synced');
+      if (o.ignoreScripts) console.log(pc.yellow(IGNORE_SCRIPTS_NOTE));
+    } else {
       spinner.fail('npm install failed');
       process.exitCode = 1;
     }
@@ -349,6 +372,7 @@ interface UiOpts extends ListOpts {
   tui: boolean;
   allowMajor?: boolean;
   backup: boolean;
+  ignoreScripts?: boolean;
 }
 
 async function uiCommand(o: UiOpts): Promise<void> {
@@ -369,6 +393,7 @@ async function uiCommand(o: UiOpts): Promise<void> {
     resolveVersions: o.registry !== false,
     registryUrl: typeof o.registry === 'string' ? o.registry : undefined,
     backup: o.backup,
+    ignoreScripts: o.ignoreScripts,
     allowMajor: o.allowMajor,
     initialFilters: {
       prodOnly: !!o.prod,
@@ -417,6 +442,7 @@ addListOptions(
   .option('--no-tui', 'print the one-shot table instead of starting the interactive session')
   .option('--allow-major', 'start with semver-major updates allowed (may introduce breaking changes)')
   .option('--no-backup', 'do not back up package.json / package-lock.json before fixing')
+  .option('--ignore-scripts', IGNORE_SCRIPTS_HELP)
   .action(uiCommand);
 
 addListOptions(
@@ -430,6 +456,7 @@ addCommonOptions(program.command('fix').description('fix vulnerabilities (intera
   .option('--dry-run', 'show the fix plan without changing anything')
   .option('-y, --yes', 'do not prompt; apply all fixes that match the filters')
   .option('--no-backup', 'do not back up package.json / package-lock.json')
+  .option('--ignore-scripts', IGNORE_SCRIPTS_HELP)
   .action(fixCommand);
 
 addRegistryOption(
@@ -438,6 +465,7 @@ addRegistryOption(
     .description('restore package.json and package-lock.json from the latest backup')
     .option('-C, --cwd <dir>', 'project directory', process.cwd())
     .option('--no-install', 'do not run npm install after restoring')
+    .option('--ignore-scripts', 'run npm install with --ignore-scripts')
     .option('--list', 'list available backups'),
 ).action(rollbackCommand);
 

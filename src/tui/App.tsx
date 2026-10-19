@@ -36,7 +36,7 @@ export interface Services {
   applyFixPlan: typeof applyFixPlan;
   listBackups: (cwd: string) => Promise<string[]>;
   restoreBackup: (cwd: string, dir?: string) => Promise<string>;
-  npmInstall: (cwd: string, onLine: (line: string) => void) => Promise<number>;
+  npmInstall: (cwd: string, onLine: (line: string) => void, ignoreScripts?: boolean) => Promise<number>;
   writeFile: (path: string, content: string) => Promise<void>;
 }
 
@@ -47,7 +47,7 @@ export const defaultServices: Services = {
   applyFixPlan,
   listBackups,
   restoreBackup,
-  npmInstall: async (cwd, onLine) => (await runNpm(['install'], { cwd, onLine })).exitCode,
+  npmInstall: async (cwd, onLine, ignoreScripts) => (await runNpm(['install'], { cwd, onLine, ignoreScripts })).exitCode,
   writeFile: (path, content) => writeFile(path, content, 'utf8'),
 };
 
@@ -60,6 +60,8 @@ export interface AppProps {
   /** Custom registry (already applied via setNpmRegistry); shown in the header. */
   registryUrl?: string;
   backup?: boolean;
+  /** Run npm install with --ignore-scripts. */
+  ignoreScripts?: boolean;
   initialFilters?: Partial<Filters>;
   allowMajor?: boolean;
   services?: Services;
@@ -229,6 +231,7 @@ export function App(props: AppProps) {
           cwd: props.cwd,
           backup: props.backup !== false,
           before: table.result?.summary,
+          ignoreScripts: props.ignoreScripts,
           onEvent,
         });
         set({ phase: 'rescan' });
@@ -238,7 +241,7 @@ export function App(props: AppProps) {
         setScreen({ name: 'result', error: (err as Error).message });
       }
     },
-    [services, props.cwd, props.backup, table.result, runScan],
+    [services, props.cwd, props.backup, props.ignoreScripts, table.result, runScan],
   );
 
   /* ------------------------------ backups / export ------------------------------ */
@@ -259,7 +262,7 @@ export function App(props: AppProps) {
         const code = await services.npmInstall(props.cwd, (line) => {
           cur = { ...cur, line };
           setScreen(cur);
-        });
+        }, props.ignoreScripts);
         await runScan('Refreshing results…', () => {
           setScreen({ name: 'table' });
           notify(code === 0 ? 'Rollback complete.' : 'Files restored, but npm install failed. Run it manually.', code === 0 ? 'green' : 'yellow');
@@ -268,7 +271,7 @@ export function App(props: AppProps) {
         setScreen({ ...cur, busy: false, error: (err as Error).message });
       }
     },
-    [services, props.cwd, runScan, notify],
+    [services, props.cwd, props.ignoreScripts, runScan, notify],
   );
 
   const doExport = useCallback(
@@ -448,13 +451,13 @@ export function App(props: AppProps) {
       break;
     }
     case 'plan':
-      body = <PlanView plan={screen.plan} allowMajor={table.allowMajor} targets={screen.targets.length} />;
+      body = <PlanView plan={screen.plan} allowMajor={table.allowMajor} targets={screen.targets.length} ignoreScripts={props.ignoreScripts} />;
       break;
     case 'progress':
       body = <ProgressView items={screen.items} phase={screen.phase} line={screen.line} backupDir={screen.backupDir} startedAt={screen.startedAt} />;
       break;
     case 'result':
-      body = <ResultView result={screen.result} error={screen.error} />;
+      body = <ResultView result={screen.result} error={screen.error} ignoreScripts={props.ignoreScripts} />;
       break;
     case 'backups':
       body = <BackupsView {...screen} />;

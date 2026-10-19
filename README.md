@@ -26,7 +26,7 @@ For scripts, CI and AI agents there are also one-shot subcommands (`list`, `fix`
 - **Safe fix versions.** Fix versions are checked against *all* known advisories, not only the ones affecting the installed version. npm alone sometimes suggests a version that is still vulnerable.
 - **Breaking-change guard.** Semver-major updates are held back unless you confirm (`m` in the session, or `--allow-major`).
 - **Live progress.** A spinner for each fix with streaming npm output, and a before/after vulnerability count.
-- **Safety net.** Automatic backup of `package.json` and `package-lock.json`, per-fix revert on failure, rollback to any backup, `--dry-run`, and an `npm ls` health check after fixing.
+- **Safety net.** Automatic backup of `package.json` and `package-lock.json`, per-fix revert on failure, rollback to any backup, `--dry-run`, optional `--ignore-scripts`, and an `npm ls` health check after fixing.
 - **Custom registries and clear errors.** `--registry <url>`, and npm's real error message with a hint when `npm audit` fails.
 - **Fast startup.** Fix versions are resolved through the registry HTTP API in parallel, with a live "Booting up Audit Sherpa…" progress screen.
 - **Exports.** JSON and Markdown reports, plus `--fail-on <severity>` for CI.
@@ -47,6 +47,7 @@ Requires Node.js >= 22.12, npm >= 7, and a `package-lock.json` in the project.
 audit-sherpa                          # start the session in the current project
 audit-sherpa -C ../other-project      # in another project
 audit-sherpa --prod --severity high   # start with filters already applied
+audit-sherpa --ignore-scripts         # run fixes and rollbacks without npm install scripts
 audit-sherpa --registry https://registry.npmjs.org/   # use a specific registry
 audit-sherpa ui                       # same as running with no subcommand (alias: i)
 ```
@@ -156,6 +157,7 @@ audit-sherpa fix --direct -y          # fix direct dependencies only
 audit-sherpa fix --packages lodash qs # fix specific packages
 audit-sherpa fix --severity critical --dry-run
 audit-sherpa fix --allow-major -y     # include semver-major (potentially breaking) updates
+audit-sherpa fix --prod -y --ignore-scripts   # don't run install scripts of updated packages
 ```
 
 <!-- SCREENSHOT [fix-dry-run]: the output of `audit-sherpa fix --dry-run` showing the plan table.
@@ -175,6 +177,7 @@ audit-sherpa fix --allow-major -y     # include semver-major (potentially breaki
 | `--dry-run` | Show the fix plan and commands without changing anything |
 | `-y, --yes` | No prompts. Semver-major fixes are still skipped unless `--allow-major` is set |
 | `--no-backup` | Do not back up `package.json` / lockfile |
+| `--ignore-scripts` | Run `npm install` with `--ignore-scripts`. See [Install scripts](#install-scripts---ignore-scripts) |
 | `--registry <url>` | npm registry for audit, fixes and version lookups, like `npm --registry`. Scoped registries in `.npmrc` still apply. `NPM_CONFIG_REGISTRY` also works |
 | `--no-registry` | Do not query the registry to resolve or verify fix versions |
 | `--input <file>` | Use an existing `npm audit --json` output instead of running npm audit |
@@ -186,9 +189,22 @@ audit-sherpa fix --allow-major -y     # include semver-major (potentially breaki
 audit-sherpa rollback            # restore the latest backup and run npm install
 audit-sherpa rollback --list     # list backups
 audit-sherpa rollback --no-install
+audit-sherpa rollback --ignore-scripts
 ```
 
 Backups are stored in `.audit-sherpa/backups/` inside your project. The last 10 are kept, and the folder ignores itself in git.
+
+## Install scripts (`--ignore-scripts`)
+
+By default, fixes and rollbacks run `npm install` normally, so packages with install scripts (`preinstall`, `install`, `postinstall`, `prepare`) are built and keep working.
+
+Add `--ignore-scripts` (or `ignoreScripts: true` in the MCP tools) to skip those scripts:
+
+- **Safer.** Install scripts are how malicious package versions usually run code, and a fix installs new versions.
+- **Faster, fewer build failures.** Native modules are not compiled during the fix.
+- **But** packages that need their scripts may not work until you run `npm rebuild`. Examples are native addons (`bcrypt`, `sharp`, `sqlite3`), binary downloaders (`esbuild`, `puppeteer`, `playwright`, `cypress`) and git-hook installers (`husky`). Your project's own `prepare`/`postinstall` scripts are skipped too. `npm ls` does not detect this, so audit-sherpa reminds you after the fix.
+
+If you already have `ignore-scripts=true` in `.npmrc`, it is respected either way.
 
 ## Custom registries and errors
 
@@ -232,8 +248,8 @@ Each fix runs on its own. If one fails, only that change is reverted and the res
 | --- | --- |
 | `audit_list` | Normalized vulnerabilities with filters (`prodOnly`, `directOnly`, `fixableOnly`, `severity`, `packages`) |
 | `audit_fix_plan` | Preview fix actions without changing anything |
-| `audit_fix` | Apply fixes (supports `dryRun`, `allowMajor`). Reports MCP progress notifications |
-| `audit_rollback` | Restore the last backup |
+| `audit_fix` | Apply fixes (supports `dryRun`, `allowMajor`, `ignoreScripts`). Reports MCP progress notifications |
+| `audit_rollback` | Restore the last backup (supports `install`, `ignoreScripts`) |
 
 Every tool accepts a `cwd` (absolute project path). It defaults to the server's working directory. To use a custom registry, add `"--registry", "https://…"` after `"mcp"` in `args`.
 
