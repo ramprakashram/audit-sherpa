@@ -8,7 +8,8 @@ export type AdvisoryRangeFetcher = (name: string, versions: string[]) => Promise
 const cache = new Map<string, Promise<string[]>>();
 const registryCache = new Map<string, Promise<string>>();
 
-function getRegistry(cwd: string): Promise<string> {
+/** Resolves the configured registry URL (cached; call early to overlap with other work). */
+export function getRegistry(cwd: string): Promise<string> {
   let p = registryCache.get(cwd);
   if (!p) {
     p = runNpm(['config', 'get', 'registry'], { cwd, timeoutMs: 30_000 }).then(({ stdout }) => {
@@ -41,25 +42,47 @@ export function createAdvisoryRangeFetcher(cwd: string): AdvisoryRangeFetcher {
   };
 }
 
-/** Fetches all published versions of a package via `npm view` (cached per process). */
+/**
+ * Fetches all published versions of a package (cached per process).
+ * Uses the registry's abbreviated metadata over HTTP, which is much faster than spawning
+ * `npm view` per package, and falls back to `npm view` (which handles auth) if that fails.
+ */
 export function createNpmVersionFetcher(cwd: string): VersionFetcher {
   return (name) => {
     const key = `${cwd}::${name}`;
     let p = cache.get(key);
     if (!p) {
-      p = runNpm(['view', name, 'versions', '--json'], { cwd, timeoutMs: 60_000 }).then(({ stdout }) => {
-        try {
-          const parsed = JSON.parse(stdout) as unknown;
-          if (Array.isArray(parsed)) return parsed.map(String);
-          return typeof parsed === 'string' ? [parsed] : [];
-        } catch {
-          return [];
-        }
-      });
+      p = fetchVersionsHttp(cwd, name).then((v) => v ?? fetchVersionsNpm(cwd, name));
       cache.set(key, p);
     }
     return p;
   };
+}
+
+async function fetchVersionsHttp(cwd: string, name: string): Promise<string[] | undefined> {
+  try {
+    const registry = await getRegistry(cwd);
+    const res = await fetch(`${registry}${name.replace('/', '%2f')}`, {
+      headers: { accept: 'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8' },
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) return undefined;
+    const data = (await res.json()) as { versions?: Record<string, unknown> };
+    return data.versions ? Object.keys(data.versions) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function fetchVersionsNpm(cwd: string, name: string): Promise<string[]> {
+  const { stdout } = await runNpm(['view', name, 'versions', '--json'], { cwd, timeoutMs: 60_000 });
+  try {
+    const parsed = JSON.parse(stdout) as unknown;
+    if (Array.isArray(parsed)) return parsed.map(String);
+    return typeof parsed === 'string' ? [parsed] : [];
+  } catch {
+    return [];
+  }
 }
 
 /**

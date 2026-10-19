@@ -12,6 +12,8 @@ export function filterVulnerabilities(vulns: Vulnerability[], filter: VulnFilter
   return vulns.filter((v) => {
     if (filter.prodOnly && !v.isProd) return false;
     if (filter.directOnly && !v.isDirect) return false;
+    if (filter.fixableOnly && !v.fixAvailable) return false;
+    if (filter.search && !v.name.toLowerCase().includes(filter.search.toLowerCase())) return false;
     if (pkgSet && !pkgSet.has(v.name)) return false;
     if (filter.severity && filter.severity !== 'all') {
       const want = severityRank(filter.severity as Severity);

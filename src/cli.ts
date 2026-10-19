@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { Command, Option } from 'commander';
-import { checkbox, confirm, select } from '@inquirer/prompts';
-import ora, { type Ora } from 'ora';
+import ora from 'ora';
 import pc from 'picocolors';
 import { readFileSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
@@ -15,9 +14,8 @@ import { severityRank } from './core/parse.js';
 import { readPackageJson } from './core/project.js';
 import { scan } from './core/scan.js';
 import { toJsonReport, toMarkdownReport } from './report/export.js';
-import { colorSeverity, fixVersionLabel, renderPlan, renderSummary, renderVulnTable } from './report/table.js';
-import type { AuditResult, FixEvent, Severity, SeverityFilter, VulnFilter, Vulnerability } from './types.js';
-import { startMcpServer } from './mcp/server.js';
+import { pickerLabels, renderPlan, renderSummary, renderVulnTable } from './report/table.js';
+import type { AuditResult, FixEvent, Severity, SeverityFilter, VulnFilter } from './types.js';
 
 const version = (() => {
   try {
@@ -31,6 +29,7 @@ interface CommonOpts {
   cwd: string;
   prod?: boolean;
   direct?: boolean;
+  fixable?: boolean;
   severity: SeverityFilter;
   severityExact?: boolean;
   input?: string;
@@ -60,6 +59,7 @@ function addCommonOptions(cmd: Command): Command {
     .option('-C, --cwd <dir>', 'project directory', process.cwd())
     .option('-p, --prod', 'only production dependencies')
     .option('-d, --direct', 'only direct dependencies')
+    .option('-F, --fixable', 'only vulnerabilities with a fix available')
     .addOption(
       new Option('-s, --severity <level>', 'minimum severity to include').choices(SEVERITY_FILTERS).default('all'),
     )
@@ -72,6 +72,7 @@ function toFilter(o: CommonOpts & { packages?: string[] }): VulnFilter {
   return {
     prodOnly: o.prod,
     directOnly: o.direct,
+    fixableOnly: o.fixable,
     severity: o.severity,
     severityExact: o.severityExact,
     packages: o.packages,
@@ -79,9 +80,21 @@ function toFilter(o: CommonOpts & { packages?: string[] }): VulnFilter {
 }
 
 async function runScan(o: CommonOpts, quiet = false): Promise<AuditResult> {
-  const spinner = quiet ? undefined : ora({ text: 'Running npm audit…', stream: process.stderr }).start();
+  const started = Date.now();
+  const title = pc.cyan('⛰ Booting up Audit Sherpa…');
+  const spinner = quiet ? undefined : ora({ text: title, stream: process.stderr }).start();
+  const secs = () => pc.dim(`(${((Date.now() - started) / 1000).toFixed(1)}s)`);
   try {
-    const result = await scan({ cwd: resolve(o.cwd), inputFile: o.input, resolveVersions: o.registry });
+    const result = await scan({
+      cwd: resolve(o.cwd),
+      inputFile: o.input,
+      resolveVersions: o.registry,
+      onProgress: (e) => {
+        if (!spinner) return;
+        if (e.phase === 'audit') spinner.text = `${title} running npm audit ${secs()}`;
+        else if (e.phase === 'resolve') spinner.text = `${title} checking fix versions ${e.done}/${e.total} ${secs()}`;
+      },
+    });
     spinner?.stop();
     return result;
   } catch (err) {
@@ -94,6 +107,7 @@ function describeFilters(o: CommonOpts & { packages?: string[] }): string {
   const parts: string[] = [];
   if (o.prod) parts.push('production only');
   if (o.direct) parts.push('direct only');
+  if (o.fixable) parts.push('fix available');
   if (o.severity && o.severity !== 'all') parts.push(`severity ${o.severityExact ? '=' : '>='} ${o.severity}`);
   if (o.packages?.length) parts.push(`packages: ${o.packages.join(', ')}`);
   return parts.length ? pc.dim(`Filters: ${parts.join(', ')}`) : '';
@@ -133,13 +147,8 @@ async function listCommand(o: ListOpts): Promise<void> {
 
 type Mode = 'all' | 'prod' | 'direct' | 'pick' | 'cancel';
 
-function choiceLabel(v: Vulnerability): string {
-  const tags = [v.isDirect ? 'direct' : 'transitive', v.isProd ? 'prod' : 'dev'];
-  const major = v.fix.isSemVerMajor ? pc.yellow(' ⚠ major') : '';
-  return `${pc.bold(v.name)} ${colorSeverity(v.severity)} ${pc.dim(`[${tags.join(', ')}]`)} ${v.currentVersions.join(', ') || '?'} → ${fixVersionLabel(v)}${major}`;
-}
-
 async function fixCommand(o: FixOpts): Promise<void> {
+  const { checkbox, confirm, select } = await import('@inquirer/prompts');
   const cwd = resolve(o.cwd);
   const result = await runScan(o);
   let vulns = filterVulnerabilities(result.vulnerabilities, toFilter(o));
@@ -173,9 +182,10 @@ async function fixCommand(o: FixOpts): Promise<void> {
     else if (mode === 'direct') vulns = fixable.filter((v) => v.isDirect);
     else if (mode === 'all') vulns = fixable;
     else {
+      const labels = pickerLabels(fixable);
       const picked = await checkbox<string>({
         message: 'Select packages to fix (space to toggle, a = all, enter to confirm)',
-        choices: fixable.map((v) => ({ name: choiceLabel(v), value: v.name })),
+        choices: fixable.map((v, i) => ({ name: labels[i]!, value: v.name })),
         pageSize: 15,
         required: true,
       });
@@ -299,24 +309,84 @@ function indent(s: string): string {
     .join('\n');
 }
 
+/* ------------------------------ interactive ------------------------------ */
+
+interface UiOpts extends ListOpts {
+  tui: boolean;
+  allowMajor?: boolean;
+  backup: boolean;
+}
+
+async function uiCommand(o: UiOpts): Promise<void> {
+  const machineOutput = o.json !== undefined || o.md !== undefined || o.failOn !== undefined;
+  const { canUseTui, startTui } = await import('./tui/index.js');
+  if (!o.tui || machineOutput || !canUseTui()) {
+    // only explain the fallback when a human is watching (output not piped)
+    if (o.tui && !machineOutput && process.stdout.isTTY) {
+      console.error(pc.dim('Interactive mode needs a terminal with raw keyboard input; showing the one-shot report instead.'));
+    }
+    await listCommand(o);
+    return;
+  }
+  await startTui({
+    cwd: resolve(o.cwd),
+    version,
+    inputFile: o.input,
+    registry: o.registry,
+    backup: o.backup,
+    allowMajor: o.allowMajor,
+    initialFilters: {
+      prodOnly: !!o.prod,
+      directOnly: !!o.direct,
+      fixableOnly: !!o.fixable,
+      severity: o.severity,
+      severityExact: !!o.severityExact,
+    },
+  });
+}
+
 /* ------------------------------ program ------------------------------ */
 
 const program = new Command()
   .name('audit-sherpa')
-  .description('List npm audit vulnerabilities in a filterable table and fix them selectively.')
+  .description(
+    'List npm audit vulnerabilities in a filterable table and fix them selectively.\n' +
+      'Run without a command to start the interactive session.',
+  )
   .version(version);
 
-addCommonOptions(
-  program
-    .command('list', { isDefault: true })
-    .alias('ls')
-    .description('show vulnerabilities as a table (default command)'),
+function addListOptions(cmd: Command): Command {
+  return cmd
+    .option('--details', 'include advisory titles and links')
+    .option('--json [file]', 'output JSON (to stdout, or to a file)')
+    .option('--md [file]', 'output Markdown (to stdout, or to a file)')
+    .addOption(
+      new Option('--fail-on <level>', 'exit with code 1 if a vulnerability at or above this level is shown').choices([
+        'critical',
+        'high',
+        'moderate',
+        'low',
+        'info',
+      ]),
+    );
+}
+
+addListOptions(
+  addCommonOptions(
+    program
+      .command('ui', { isDefault: true })
+      .alias('i')
+      .description('interactive session: browse, filter, fix and roll back (default command)'),
+  ),
 )
-  .option('--details', 'include advisory titles and links')
-  .option('--json [file]', 'output JSON (to stdout, or to a file)')
-  .option('--md [file]', 'output Markdown (to stdout, or to a file)')
-  .addOption(new Option('--fail-on <level>', 'exit with code 1 if a vulnerability at or above this level is shown').choices(['critical', 'high', 'moderate', 'low', 'info']))
-  .action(listCommand);
+  .option('--no-tui', 'print the one-shot table instead of starting the interactive session')
+  .option('--allow-major', 'start with semver-major updates allowed (may introduce breaking changes)')
+  .option('--no-backup', 'do not back up package.json / package-lock.json before fixing')
+  .action(uiCommand);
+
+addListOptions(
+  addCommonOptions(program.command('list').alias('ls').description('print vulnerabilities as a table and exit')),
+).action(listCommand);
 
 addCommonOptions(program.command('fix').description('fix vulnerabilities (interactive when run in a terminal)'))
   .option('--packages <names...>', 'only fix these vulnerable packages (space or comma separated)', collectPackages)
@@ -339,7 +409,7 @@ program
   .command('mcp')
   .description('start the Model Context Protocol server over stdio (for LLM agents)')
   .option('-C, --cwd <dir>', 'default project directory', process.cwd())
-  .action(async (o: { cwd: string }) => startMcpServer(resolve(o.cwd)));
+  .action(async (o: { cwd: string }) => (await import('./mcp/server.js')).startMcpServer(resolve(o.cwd)));
 
 function collectPackages(value: string, previous: string[] = []): string[] {
   return previous.concat(value.split(',').map((s) => s.trim()).filter(Boolean));

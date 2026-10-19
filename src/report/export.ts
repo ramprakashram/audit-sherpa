@@ -1,5 +1,5 @@
 import type { AuditResult, Vulnerability } from '../types.js';
-import { fixVersionLabel } from './table.js';
+import { fixVersionText, fixViaText, isMajorFix } from './columns.js';
 
 export function toJsonReport(result: AuditResult, vulns: Vulnerability[] = result.vulnerabilities): string {
   return JSON.stringify(
@@ -32,22 +32,25 @@ export function toMarkdownReport(result: AuditResult, vulns: Vulnerability[] = r
     return lines.join('\n');
   }
   lines.push(
-    '| Package | Severity | Direct | Prod | Fix Available | Current | Fix Version | Breaking | Advisories |',
-    '|---|---|---|---|---|---|---|---|---|',
+    '| Package | Severity | Direct | Prod | Fix | Current | Fix Version | Via | Major | Advisories |',
+    '|---|---|---|---|---|---|---|---|---|---|',
   );
   for (const v of vulns) {
-    const fixVersion = fixVersionLabel(v);
     const advisories = v.advisories.length
       ? v.advisories.map((a) => `[${esc(a.title)}](${a.url})`).join('<br>')
       : v.via.length
         ? `via ${v.via.join(', ')}`
         : '';
     lines.push(
-      `| ${esc(v.name)} | ${v.severity} | ${v.isDirect ? 'yes' : 'no'} | ${v.isProd ? 'yes' : 'no'} | ${
-        v.fixAvailable ? 'yes' : 'no'
-      } | ${v.currentVersions.join(', ') || '-'} | ${esc(fixVersion)} | ${v.fix.isSemVerMajor ? '⚠ major' : ''} | ${advisories} |`,
+      `| ${esc(v.name)} | ${v.severity} | ${yesNo(v.isDirect)} | ${yesNo(v.isProd)} | ${yesNo(v.fixAvailable)} | ${
+        v.currentVersions.join(', ') || '-'
+      } | ${esc(fixVersionText(v))} | ${esc(fixViaText(v))} | ${isMajorFix(v) ? '⚠ yes' : ''} | ${advisories} |`,
     );
   }
   lines.push('');
   return lines.join('\n');
+}
+
+function yesNo(b: boolean): string {
+  return b ? 'yes' : 'no';
 }

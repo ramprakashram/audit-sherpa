@@ -121,6 +121,10 @@ export type SeverityFilter = Severity | 'all';
 export interface VulnFilter {
   prodOnly?: boolean;
   directOnly?: boolean;
+  /** Only vulnerabilities with a fix available. */
+  fixableOnly?: boolean;
+  /** Case-insensitive substring match on the package name. */
+  search?: string;
   /** Minimum severity (inclusive) unless `severityExact` is set. */
   severity?: SeverityFilter;
   severityExact?: boolean;

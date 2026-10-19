@@ -19,11 +19,19 @@ export interface NormalizeOptions {
   /** Used to make sure a suggested fix version is not affected by other advisories. */
   fetchAdvisoryRanges?: AdvisoryRangeFetcher;
   cwd?: string;
+  /** Called after each vulnerability is resolved. */
+  onProgress?: (done: number, total: number) => void;
 }
 
 export async function normalizeReport(raw: RawAuditReport, opts: NormalizeOptions): Promise<AuditResult> {
   const entries = Object.values(raw.vulnerabilities);
-  const vulnerabilities = await mapLimit(entries, 8, (v) => normalizeVulnerability(v, opts));
+  let done = 0;
+  opts.onProgress?.(0, entries.length);
+  const vulnerabilities = await mapLimit(entries, 8, async (v) => {
+    const r = await normalizeVulnerability(v, opts);
+    opts.onProgress?.(++done, entries.length);
+    return r;
+  });
   vulnerabilities.sort(compareVulns);
 
   const m = raw.metadata?.vulnerabilities;

@@ -27,6 +27,7 @@ const filterShape = {
     .describe('Absolute path of the npm project (folder containing package.json). Defaults to the server working directory.'),
   prodOnly: z.boolean().optional().describe('Only production dependencies (exclude dev-only).'),
   directOnly: z.boolean().optional().describe('Only direct dependencies declared in package.json.'),
+  fixableOnly: z.boolean().optional().describe('Only vulnerabilities that have a fix available.'),
   severity: z
     .enum(['all', 'critical', 'high', 'moderate', 'low', 'info'])
     .optional()
@@ -35,10 +36,25 @@ const filterShape = {
   packages: z.array(z.string()).optional().describe('Restrict to these vulnerable package names.'),
 };
 
-type FilterArgs = { cwd?: string; prodOnly?: boolean; directOnly?: boolean; severity?: VulnFilter['severity']; severityExact?: boolean; packages?: string[] };
+type FilterArgs = {
+  cwd?: string;
+  prodOnly?: boolean;
+  directOnly?: boolean;
+  fixableOnly?: boolean;
+  severity?: VulnFilter['severity'];
+  severityExact?: boolean;
+  packages?: string[];
+};
 
 function toFilter(a: FilterArgs): VulnFilter {
-  return { prodOnly: a.prodOnly, directOnly: a.directOnly, severity: a.severity, severityExact: a.severityExact, packages: a.packages };
+  return {
+    prodOnly: a.prodOnly,
+    directOnly: a.directOnly,
+    fixableOnly: a.fixableOnly,
+    severity: a.severity,
+    severityExact: a.severityExact,
+    packages: a.packages,
+  };
 }
 
 function compact(v: Vulnerability) {

@@ -1,6 +1,6 @@
 {
   "name": "audit-sherpa",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Guided npm audit: list vulnerabilities in a filterable table and fix them selectively (prod-only, direct-only, or hand-picked). Includes an MCP server for LLM agents.",
   "type": "module",
   "bin": {
@@ -60,14 +60,18 @@
     "cli-table3": "^0.6.5",
     "commander": "^15.0.0",
     "execa": "^10.2.0",
+    "ink": "^8.0.0",
     "ora": "^9.4.1",
     "picocolors": "^1.1.1",
+    "react": "^19.3.1",
     "semver": "^7.8.5",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
     "@types/semver": "^7.8.0",
+    "ink-testing-library": "^4.0.0",
     "tsup": "^9.0.0",
     "typescript": "^6.0.3",
     "vitest": "^5.0.5"

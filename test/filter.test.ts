@@ -31,4 +31,10 @@ describe('filterVulnerabilities', () => {
   it('filters by package name', () => {
     expect(names({ packages: ['c', 'zzz'] })).toEqual(['c']);
   });
+
+  it('filters by fix availability and name search', () => {
+    const list = [...vulns, vuln({ name: 'Lodash-es', fixAvailable: false, fix: { kind: 'none', isSemVerMajor: false } })];
+    expect(filterVulnerabilities(list, { fixableOnly: true }).map((v) => v.name)).toEqual(['a', 'b', 'c', 'd']);
+    expect(filterVulnerabilities(list, { search: 'lodash' }).map((v) => v.name)).toEqual(['Lodash-es']);
+  });
 });

@@ -4,23 +4,30 @@
 
 ```
 $ npx audit-sherpa
-14 vulnerabilities (2 critical, 9 high, 3 low)
-┌──────────────┬──────────┬────────┬──────┬───────────────┬─────────┬────────────────────┬──────────┐
-│ Package      │ Severity │ Direct │ Prod │ Fix Available │ Current │ Fix Version        │ Breaking │
-├──────────────┼──────────┼────────┼──────┼───────────────┼─────────┼────────────────────┼──────────┤
-│ mkdirp       │ critical │ yes    │ yes  │ yes           │ 0.5.1   │ 0.5.6              │          │
-│ minimist     │ critical │ no     │ yes  │ yes           │ 0.0.8   │ 0.5.6 (via mkdirp) │          │
-│ axios        │ high     │ yes    │ yes  │ yes           │ 0.21.0  │ 0.34.0             │ ⚠ major  │
-│ json5        │ high     │ yes    │ no   │ yes           │ 1.0.1   │ 1.0.2              │          │
-│ qs           │ high     │ no     │ yes  │ yes           │ 6.7.0   │ 6.16.0             │          │
-│ …            │          │        │      │               │         │                    │          │
-└──────────────┴──────────┴────────┴──────┴───────────────┴─────────┴────────────────────┴──────────┘
+⛰ audit-sherpa · my-app · 14 vulnerabilities (2 critical, 9 high, 3 low) · scanned 10:24:45 am
+p prod ✓  d direct  x fix available ✓  s severity all  / search  o sort severity  m majors held back
+showing 12 of 14 · 2 selected · filters: prod only, fix available
+
+      Package        Severity Direct Prod Fix Current Fix Version Via    Major
+▶ [x] mkdirp         critical yes    yes  yes 0.5.1   0.5.6
+  [ ] minimist       critical no     yes  yes 0.0.8   0.5.6       mkdirp
+  [ ] axios          high     yes    yes  yes 0.21.0  0.34.0             ⚠ yes
+  [x] lodash         high     yes    yes  yes 4.17.15 4.18.1
+  [ ] qs             high     no     yes  yes 6.7.0   6.16.0
+  …
+──────────────────────────────────────────────────────────────────────────────────
+● Prototype Pollution in minimist https://github.com/advisories/GHSA-…
+↑↓ move  space select  f fix  p/d/x/s filters  / search  r re-scan  e export  b rollback  ? help  q quit
 ```
+
+Running `audit-sherpa` starts an interactive terminal session. You browse, filter, select, fix, roll back and re-scan in one place without retyping commands. One-shot subcommands are still available for scripts, CI and AI agents.
 
 ## Features
 
-- **Readable report.** Runs `npm audit --json` (auditReportVersion 2) and shows package, severity, direct/transitive, prod/dev, fix availability, current version, fix version and breaking-change flag.
-- **Filters.** `--prod`, `--direct`, `--severity critical|high|moderate|low|info|all`, `--packages`.
+- **Interactive session.** A full-screen terminal UI (like `htop`) that stays open: filter with single keys, multi-select packages, preview the fix plan, watch fixes run live, then roll back or re-scan.
+- **Readable report.** Runs `npm audit --json` (auditReportVersion 2) and shows package, severity, direct/transitive, prod/dev, fix availability, current version, fix version, the package that gets bumped (`Via`), and a separate `Major` (breaking-change) column.
+- **Filters.** Production only, direct only, fix available, severity (`critical|high|moderate|low|info|all`), package names, and search.
+- **Fast startup.** Fix versions are resolved through the registry HTTP API in parallel, with a live "Booting up Audit Sherpa…" progress screen.
 - **Selective fixes.** Fix production deps only, direct deps only, everything, or pick packages from an interactive multiselect.
 - **Safe fix versions.** Fix versions are checked against *all* known advisories, not only the ones affecting the installed version. npm alone sometimes suggests a version that is still vulnerable.
 - **Breaking-change guard.** Semver-major updates are held back unless you confirm, or pass `--allow-major`.
@@ -39,13 +46,43 @@ Requires Node.js >= 22.12, npm >= 7, and a `package-lock.json` in the project.
 
 ## Usage
 
-### List vulnerabilities
+### Interactive mode (default)
 
 ```bash
-audit-sherpa                          # same as `audit-sherpa list`
-audit-sherpa --prod                   # production dependencies only
-audit-sherpa --direct                 # direct dependencies only
-audit-sherpa --severity high          # high and critical
+audit-sherpa                          # start the interactive session in the current project
+audit-sherpa -C ../other-project      # in another project
+audit-sherpa --prod --severity high   # start with filters already applied
+```
+
+| Key | Action |
+| --- | --- |
+| `↑` `↓` / `j` `k`, `PgUp` `PgDn`, `g` `G` | Move and scroll |
+| `space` | Select or unselect the package (fixable rows only) |
+| `a` / `n` | Select all fixable rows in view / clear the selection |
+| `p` / `d` / `x` | Toggle production only / direct only / fix available |
+| `s` / `S` | Cycle minimum severity / toggle exact severity match |
+| `/` | Search by package name (`esc` clears) |
+| `c` | Clear all filters |
+| `o` | Cycle sort: severity, name, scope |
+| `enter` | Show all advisories and details for the current row |
+| `f` | Fix: selected packages, everything in view, production only, or direct only. Shows the plan first |
+| `m` | Allow or hold back semver-major (potentially breaking) updates |
+| `r` | Re-run npm audit |
+| `e` | Export the current view to JSON or Markdown |
+| `b` | Backups: roll back to any earlier backup |
+| `?` | Help |
+| `q` | Quit |
+
+The session falls back to the one-shot table when output is not an interactive terminal (pipes, CI), or with `--json`, `--md`, `--fail-on` or `--no-tui`.
+
+### List vulnerabilities (one-shot)
+
+```bash
+audit-sherpa list                     # print the table and exit
+audit-sherpa list --prod              # production dependencies only
+audit-sherpa list --direct            # direct dependencies only
+audit-sherpa list --fixable           # only vulnerabilities with a fix available
+audit-sherpa --no-tui --severity high # same as `list`; high and critical
 audit-sherpa --severity moderate --severity-exact
 audit-sherpa --details                # include advisory titles and links
 audit-sherpa --json                   # JSON to stdout
@@ -70,6 +107,7 @@ audit-sherpa fix --allow-major -y     # include semver-major (potentially breaki
 | `-d, --direct` | Only direct dependencies |
 | `-s, --severity <level>` | Minimum severity: `all` (default), `critical`, `high`, `moderate`, `low`, `info` |
 | `--severity-exact` | Match the severity exactly |
+| `-F, --fixable` | Only vulnerabilities that have a fix available |
 | `--packages <names...>` | Only these vulnerable packages (space or comma separated) |
 | `-i, --interactive` | Always show the interactive selector |
 | `--allow-major` | Allow semver-major updates. **These may contain breaking changes.** |
@@ -109,7 +147,7 @@ Each fix runs on its own. If one fails, only that change is reverted and the res
 
 | Tool | Description |
 | --- | --- |
-| `audit_list` | Normalized vulnerabilities with filters (`prodOnly`, `directOnly`, `severity`, `packages`) |
+| `audit_list` | Normalized vulnerabilities with filters (`prodOnly`, `directOnly`, `fixableOnly`, `severity`, `packages`) |
 | `audit_fix_plan` | Preview fix actions without changing anything |
 | `audit_fix` | Apply fixes (supports `dryRun`, `allowMajor`). Reports MCP progress notifications |
 | `audit_rollback` | Restore the last backup |
