@@ -247,10 +247,6 @@ Every tool accepts a `cwd` (absolute project path). It defaults to the server's 
 
 Example prompt: *"Use audit-sherpa to list the high and critical production vulnerabilities in this repo, then fix the direct ones without breaking changes."*
 
-<!-- SCREENSHOT [mcp]: an AI agent (Copilot / Claude / Cursor) calling the audit-sherpa MCP tools. Use the demo project, not a work repo.
-     Save as docs/screenshots/mcp.png, then uncomment the image line below. -->
-<!-- ![audit-sherpa used by an AI agent](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/mcp.png) -->
-
 ## Programmatic API
 
 Most people only need the CLI. If you want to build your own tooling (custom CI gates, reports, bots), the same building blocks are exported as a Node.js library:
