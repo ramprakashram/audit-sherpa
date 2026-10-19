@@ -1,0 +1,13 @@
+export * from './types.js';
+export { runAudit, parseAuditJson, AuditError } from './core/audit.js';
+export { normalizeReport, severityRank } from './core/parse.js';
+export { scan, type ScanOptions } from './core/scan.js';
+export { filterVulnerabilities, isSeverityFilter, SEVERITY_FILTERS } from './core/filter.js';
+export { buildFixPlan, describeAction, installArgs, type PlanOptions } from './core/fixPlan.js';
+export { applyFixPlan, checkTree, type ApplyOptions } from './core/fixer.js';
+export { readPackageJson, readLockfile } from './core/project.js';
+export { createBackup, restoreBackup, listBackups } from './core/backup.js';
+export { pickSafeVersion } from './core/registry.js';
+export { renderVulnTable, renderPlan, renderSummary } from './report/table.js';
+export { toJsonReport, toMarkdownReport } from './report/export.js';
+export { createMcpServer, startMcpServer } from './mcp/server.js';

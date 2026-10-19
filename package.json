@@ -1,0 +1,75 @@
+{
+  "name": "audit-sherpa",
+  "version": "0.1.0",
+  "description": "Guided npm audit: list vulnerabilities in a filterable table and fix them selectively (prod-only, direct-only, or hand-picked). Includes an MCP server for LLM agents.",
+  "type": "module",
+  "bin": {
+    "audit-sherpa": "dist/cli.js",
+    "audit-sherpa-mcp": "dist/mcp.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "keywords": [
+    "npm",
+    "audit",
+    "npm-audit",
+    "vulnerabilities",
+    "security",
+    "fix",
+    "cli",
+    "mcp",
+    "model-context-protocol",
+    "llm"
+  ],
+  "author": "Ramprakash <connect2ramprakash@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ramprakashram/audit-sherpa.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ramprakashram/audit-sherpa/issues"
+  },
+  "homepage": "https://github.com/ramprakashram/audit-sherpa#readme",
+  "license": "MIT",
+  "dependencies": {
+    "@inquirer/prompts": "^8.7.3",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "cli-table3": "^0.6.5",
+    "commander": "^15.0.0",
+    "execa": "^10.2.0",
+    "ora": "^9.4.1",
+    "picocolors": "^1.1.1",
+    "semver": "^7.8.5",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/semver": "^7.8.0",
+    "tsup": "^9.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}
