@@ -1,5 +1,11 @@
 # audit-sherpa
 
+[![npm version](https://img.shields.io/npm/v/audit-sherpa.svg)](https://www.npmjs.com/package/audit-sherpa)
+[![npm downloads](https://img.shields.io/npm/dm/audit-sherpa.svg)](https://www.npmjs.com/package/audit-sherpa)
+[![license](https://img.shields.io/npm/l/audit-sherpa.svg)](https://github.com/ramprakashram/audit-sherpa/blob/main/LICENSE)
+
+**npm:** [npmjs.com/package/audit-sherpa](https://www.npmjs.com/package/audit-sherpa) · **GitHub:** [ramprakashram/audit-sherpa](https://github.com/ramprakashram/audit-sherpa)
+
 > Your guide through `npm audit`. Run one command and get an **interactive terminal session**: browse vulnerabilities in a clean, filterable table, pick exactly what to fix (production only, direct only, or hand-picked packages), watch the fixes run live, and roll back if needed. Includes an MCP server, so AI agents can debug and fix vulnerabilities for you.
 
 ![audit-sherpa interactive session](https://raw.githubusercontent.com/ramprakashram/audit-sherpa/main/docs/screenshots/hero.png)
@@ -7,7 +13,6 @@
 ## Quick start
 
 ```bash
-cd your-project
 npx audit-sherpa
 ```
 
